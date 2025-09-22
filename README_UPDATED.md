@@ -29,6 +29,26 @@ pip install transistor-api
 
 ## Quick Start
 
+### Episode Access (Important!)
+
+```python
+from transistor import TransistorClient
+
+client = TransistorClient('your_api_key_here')
+
+# ⚠️ This only returns first 20 episodes (API limitation)
+episodes = client.list_episodes('show_id')
+print(f"Episodes: {len(episodes['data'])}")  # Max 20
+
+# ✅ Get all episode IDs (recommended)
+all_episode_ids = client.get_all_episode_ids('show_id')
+print(f"Total episodes: {len(all_episode_ids)}")  # All episodes
+
+# ✅ Get complete data for all episodes (slower)
+all_episodes = client.get_all_episodes_full_data('show_id')
+print(f"Complete episodes: {len(all_episodes['data'])}")  # All episodes with full data
+```
+
 ### Python Library
 
 ```python
@@ -88,7 +108,7 @@ transistor shows get SHOW_ID
 # Create a new show
 transistor shows create --title "My Podcast" --description "A great podcast"
 
-# List episodes
+# List episodes (⚠️ only shows first 20)
 transistor episodes list
 
 # Create episode
@@ -107,54 +127,72 @@ transistor upload /path/to/audio.mp3
 transistor interactive
 ```
 
-### Interactive Mode
-
-The CLI includes an interactive mode for easy API exploration:
-
-```bash
-$ transistor interactive
-Transistor API Interactive Mode
-Type 'help' for commands, 'quit' to exit
-
-transistor> help
-Available commands:
-  account              - Get account info
-  shows                - List shows
-  episodes             - List episodes
-  show <id>            - Get show details
-  episode <id>         - Get episode details
-  analytics <id>       - Get analytics by ID
-  show-analytics <id>  - Get show analytics
-  episode-analytics <id> - Get episode analytics
-  all-episodes <id>    - Get all episodes analytics
-  quit                 - Exit
-
-transistor> shows
-ID         Title                          Status    
-----------------------------------------------------
-31926      The New Quantum Era           published
-
-transistor> show-analytics 31926
-Analytics for last 7 days...
-
-transistor> quit
-```
-
 ## API Reference
 
-### Authentication
-
-Get your API key from [dashboard.transistor.fm/account](https://dashboard.transistor.fm/account).
+### Episode Operations (Updated)
 
 ```python
-client = TransistorClient('your_api_key')
+# ⚠️ Limited episode listing (first 20 only)
+episodes = client.list_episodes('show_id')
+
+# ✅ Get all episode IDs using analytics workaround
+all_ids = client.get_all_episode_ids('show_id')
+
+# ✅ Get complete data for all episodes
+all_episodes = client.get_all_episodes_full_data('show_id')
+
+# Get specific episode
+episode = client.get_episode('episode_id')
+
+# Create episode
+episode_data = {
+    "data": {
+        "type": "episode",
+        "attributes": {
+            "title": "Episode Title",
+            "description": "Episode description"
+        }
+    }
+}
+episode = client.create_episode('show_id', episode_data)
+
+# Update episode
+client.update_episode('episode_id', updated_data)
+
+# Publish/unpublish episode
+client.publish_episode('episode_id')
+client.unpublish_episode('episode_id')
+
+# Delete episode
+client.delete_episode('episode_id')
 ```
 
-### Account Operations
+### New Workaround Methods
 
 ```python
-# Get account details
-account = client.get_account()
+def get_all_episode_ids(self, show_id: str) -> List[str]:
+    """
+    Get all episode IDs using analytics endpoint workaround
+    
+    Returns:
+        List of all episode IDs for the show
+        
+    Note:
+        This bypasses the 20-episode limitation by using the analytics
+        endpoint which returns all episodes.
+    """
+
+def get_all_episodes_full_data(self, show_id: str) -> Dict[str, Any]:
+    """
+    Get complete data for ALL episodes using individual API calls
+    
+    Returns:
+        Dict containing all episodes with full data
+        
+    Warning:
+        Makes one API call per episode. For large podcasts, this may
+        hit rate limits. Built-in rate limiting protection included.
+    """
 ```
 
 ### Show Operations
@@ -185,41 +223,6 @@ client.update_show('show_id', updated_data)
 client.delete_show('show_id')
 ```
 
-### Episode Operations
-
-```python
-# List episodes (paginated - returns first 20)
-episodes = client.list_episodes()
-
-# List episodes for specific show
-episodes = client.list_episodes('show_id')
-
-# Get specific episode
-episode = client.get_episode('episode_id')
-
-# Create episode
-episode_data = {
-    "data": {
-        "type": "episode",
-        "attributes": {
-            "title": "Episode Title",
-            "description": "Episode description"
-        }
-    }
-}
-episode = client.create_episode('show_id', episode_data)
-
-# Update episode
-client.update_episode('episode_id', updated_data)
-
-# Publish/unpublish episode
-client.publish_episode('episode_id')
-client.unpublish_episode('episode_id')
-
-# Delete episode
-client.delete_episode('episode_id')
-```
-
 ### Analytics Operations
 
 The analytics system provides comprehensive download data from **January 1, 2022** onwards (nearly 4 years of historical data).
@@ -247,49 +250,44 @@ episode_analytics = client.get_episode_analytics('episode_id',
 analytics = client.get_analytics('analytics_id')
 ```
 
-**Analytics Data Structure:**
+## Episode Pagination Workaround
+
+Due to Transistor.fm API limitations, use these patterns:
+
+### For Episode Counts
 ```python
-{
-    "data": {
-        "attributes": {
-            "downloads": [
-                {"date": "21-09-2025", "downloads": 150},
-                {"date": "20-09-2025", "downloads": 200}
-            ],
-            "start_date": "15-09-2025",
-            "end_date": "21-09-2025"
-        }
-    }
-}
+# Get total episode count
+all_ids = client.get_all_episode_ids('show_id')
+total_episodes = len(all_ids)
+print(f"Podcast has {total_episodes} episodes")
 ```
 
-### Private Subscriber Operations
-
+### For Episode Processing
 ```python
-# List private subscribers
-subscribers = client.list_subscribers('show_id')
+# Process all episodes efficiently
+all_ids = client.get_all_episode_ids('show_id')
 
-# Create private subscriber
-subscriber_data = {
-    "data": {
-        "type": "private_subscriber",
-        "attributes": {
-            "email": "subscriber@example.com"
-        }
-    }
-}
-subscriber = client.create_subscriber('show_id', subscriber_data)
-
-# Delete subscriber
-client.delete_subscriber('show_id', 'subscriber_id')
+for episode_id in all_ids:
+    episode = client.get_episode(episode_id)
+    title = episode['data']['attributes']['title']
+    print(f"Processing: {title}")
+    
+    # Add rate limiting for large podcasts
+    if len(all_ids) > 50:
+        import time
+        time.sleep(0.1)  # Brief pause
 ```
 
-### File Upload Operations
-
+### For Complete Episode Data
 ```python
-# Upload audio file
-upload_result = client.upload_audio('/path/to/audio.mp3')
-print(f"Upload URL: {upload_result['data']['attributes']['upload_url']}")
+# Get all episodes with full data (handles rate limiting automatically)
+all_episodes = client.get_all_episodes_full_data('show_id')
+
+print(f"Retrieved {len(all_episodes['data'])} episodes")
+print(f"Failed: {all_episodes['meta']['failed']} episodes")
+
+for episode in all_episodes['data']:
+    print(f"Episode: {episode['attributes']['title']}")
 ```
 
 ## Error Handling
@@ -310,38 +308,34 @@ except TransistorAPIError as e:
     print(f"API error: {e}")
 ```
 
-### Exception Types
-
-- `TransistorAPIError` - Base exception for all API errors
-- `RateLimitError` - Rate limit exceeded (429) - wait 10 seconds
-- `AuthenticationError` - Invalid API key (401)
-- `NotFoundError` - Resource not found (404)
-- `ValidationError` - Request validation failed (422)
-
 ## Rate Limiting
 
-The Transistor API is limited to **10 requests per 10 seconds**. The client automatically detects rate limit errors and raises `RateLimitError` when limits are exceeded.
+The Transistor API is limited to **10 requests per 10 seconds**. The workaround methods include automatic rate limiting protection.
 
 ```python
 import time
 from transistor import RateLimitError
 
 try:
-    result = client.get_show_analytics('show_id')
+    # This method includes built-in rate limiting
+    all_episodes = client.get_all_episodes_full_data('show_id')
 except RateLimitError:
     print("Rate limited - waiting 10 seconds...")
     time.sleep(10)
-    result = client.get_show_analytics('show_id')  # Retry
 ```
 
-## Analytics Data Availability
+## Known API Limitations
 
-Analytics data is available from **January 1, 2022** onwards:
+### Episode Pagination
+- ❌ `list_episodes()` only returns first 20 episodes
+- ❌ API rejects pagination parameters (`page`, `per_page`, etc.)
+- ❌ API shows `totalPages` metadata but provides no way to access additional pages
+- ✅ Workaround methods provided for complete episode access
 
-- ✅ **Complete data:** Jan 1, 2022 to present (nearly 4 years)
-- ✅ **Daily breakdown:** Downloads per day for each episode
-- ✅ **Date filtering:** Custom date ranges in dd-mm-yyyy format
-- ✅ **All episodes:** Use `get_all_episodes_analytics()` to get all episodes in one request (not paginated)
+### Analytics vs Episodes
+- ✅ Analytics endpoints return all episodes
+- ❌ Episode endpoints are paginated without working pagination
+- ✅ Individual episode access works for any episode ID
 
 ## Development
 
@@ -372,6 +366,7 @@ See the `examples/` directory for complete usage examples:
 
 - `examples/basic_usage.py` - Basic library usage
 - `examples/analytics_usage.py` - Analytics-focused examples
+- `examples/episode_workarounds.py` - Episode pagination workarounds
 
 ## Contributing
 
@@ -394,8 +389,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Changelog
 
-### v1.0.0
-- Initial release
+### v1.1.0 - Episode Pagination Fixes
+- Fixed `list_episodes()` endpoint format (404 → 200)
+- Added `get_all_episode_ids()` workaround method
+- Added `get_all_episodes_full_data()` with rate limiting
+- Documented API limitations and workarounds
+
+### v1.0.0 - Initial Release
 - Complete API coverage for all endpoints
 - CLI with interactive mode
 - Comprehensive analytics support

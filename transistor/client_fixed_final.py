@@ -212,6 +212,7 @@ class TransistorClient:
         """Unpublish an episode"""
         return self._request("PATCH", f"episodes/{episode_id}/unpublish")
     
+    
     def get_all_episode_ids(self, show_id: str) -> List[str]:
         """
         Get all episode IDs using analytics endpoint workaround
@@ -224,11 +225,11 @@ class TransistorClient:
             
         Note:
             This uses the analytics endpoint which returns all episodes.
-            Workaround for Transistor.fm API's 20-episode limitation.
+            The Transistor.fm API limitation prevents direct episode pagination.
         """
         analytics = self.get_all_episodes_analytics(show_id)
         
-        # Analytics structure: data.attributes.episodes
+        # Analytics structure: data.attributes.episodes (not data array)
         if 'data' in analytics and 'attributes' in analytics['data']:
             episodes = analytics['data']['attributes'].get('episodes', [])
             return [str(ep['id']) for ep in episodes]
@@ -243,10 +244,12 @@ class TransistorClient:
             show_id: The show ID
             
         Returns:
-            Dict containing all episodes with full data and metadata
+            Dict containing all episodes with full data
             
-        Warning:
-            Makes one API call per episode. Includes rate limiting protection.
+        WARNING:
+            This makes one API call per episode and may hit rate limits.
+            For your 65-episode podcast, this makes 65+ API calls.
+            Use with caution and implement delays if needed.
         """
         episode_ids = self.get_all_episode_ids(show_id)
         episodes = []
