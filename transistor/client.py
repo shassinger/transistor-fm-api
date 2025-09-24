@@ -6,6 +6,8 @@ Supports all endpoints including shows, episodes, analytics, subscribers, and up
 """
 
 import requests
+import time
+from collections import deque
 from typing import Dict, List, Optional, Any
 from .exceptions import TransistorAPIError, RateLimitError, AuthenticationError, NotFoundError, ValidationError
 
@@ -28,9 +30,11 @@ class TransistorClient:
     
     BASE_URL = "https://api.transistor.fm/v1"
     
-    def __init__(self, api_key: str):
-        """Initialize the client with API key"""
+    def __init__(self, api_key: str, auto_rate_limit: bool = True):
+        """Initialize the client with API key and optional rate limiting"""
         self.api_key = api_key
+        self.auto_rate_limit = auto_rate_limit
+        self.request_times = deque(maxlen=10)  # Track last 10 requests
         self.session = requests.Session()
         self.session.headers.update({
             "x-api-key": api_key,
@@ -38,9 +42,26 @@ class TransistorClient:
             "Accept": "application/json"
         })
     
+    def _enforce_rate_limit(self):
+        """Enforce 10 requests per 10 seconds rate limit"""
+        now = time.time()
+        
+        # Remove requests older than 10 seconds
+        while self.request_times and now - self.request_times[0] > 10:
+            self.request_times.popleft()
+        
+        # If we have 10 requests in the last 10 seconds, wait
+        if len(self.request_times) >= 10:
+            sleep_time = 10 - (now - self.request_times[0]) + 0.1  # Small buffer
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+        
+        # Record this request
+        self.request_times.append(now)
+
     def _request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         """
-        Make authenticated API request with comprehensive error handling
+        Make authenticated API request with automatic rate limiting
         
         Args:
             method: HTTP method (GET, POST, PATCH, DELETE)
@@ -50,13 +71,13 @@ class TransistorClient:
         Returns:
             Dict containing the JSON response
             
-        Raises:
-            RateLimitError: When rate limit (10 req/10s) is exceeded
-            AuthenticationError: When API key is invalid
-            NotFoundError: When resource is not found
-            ValidationError: When request validation fails
-            TransistorAPIError: For other API errors
+        Note:
+            Automatically handles rate limiting (10 req/10s) when auto_rate_limit=True
         """
+        # Automatic rate limiting
+        if self.auto_rate_limit:
+            self._enforce_rate_limit()
+        
         url = f"{self.BASE_URL}/{endpoint.lstrip('/')}"
         
         try:

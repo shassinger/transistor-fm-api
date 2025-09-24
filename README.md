@@ -16,7 +16,7 @@ A complete Python client library for the [Transistor.fm](https://transistor.fm) 
 - ✅ **Analytics Support** - Comprehensive download analytics with date filtering  
 - ✅ **CLI Tools** - Command-line interface with interactive mode
 - ✅ **Error Handling** - Specific exceptions for different error types
-- ✅ **Rate Limiting** - Built-in awareness of API rate limits (10 req/10s)
+- ✅ **Rate Limiting** - Automatic rate limiting (10 req/10s) with optional disable
 - ✅ **JSON:API Compliant** - Proper data formatting and sparse fieldsets
 - ✅ **Type Hints** - Full type annotations for better IDE support
 - ✅ **File Uploads** - Audio file upload support
@@ -34,8 +34,11 @@ pip install transistor-api
 ```python
 from transistor import TransistorClient
 
-# Initialize client with your API key
+# Initialize client with automatic rate limiting (default)
 client = TransistorClient('your_api_key_here')
+
+# Or disable automatic rate limiting for advanced use
+client = TransistorClient('your_api_key_here', auto_rate_limit=False)
 
 # Get account information
 account = client.get_account()
@@ -320,8 +323,21 @@ except TransistorAPIError as e:
 
 ## Rate Limiting
 
-The Transistor API is limited to **10 requests per 10 seconds**. The client automatically detects rate limit errors and raises `RateLimitError` when limits are exceeded.
+The Transistor API is limited to **10 requests per 10 seconds**. The client automatically handles this by default:
 
+```python
+# Automatic rate limiting (default)
+client = TransistorClient('your_api_key')
+
+# Make many requests - automatically paced
+for i in range(15):
+    episode = client.get_episode(episode_ids[i])  # Auto-sleeps after 10 requests
+
+# Disable for advanced use cases
+client = TransistorClient('your_api_key', auto_rate_limit=False)
+```
+
+**Manual handling** (only needed if auto_rate_limit=False):
 ```python
 import time
 from transistor import RateLimitError

@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.2.0] - 2025-09-24
+
+### Added
+- **Automatic Rate Limiting** - Built-in rate limiting (10 req/10s) enabled by default
+- Optional `auto_rate_limit=False` parameter to disable automatic rate limiting
+- Intelligent request tracking and automatic sleep when approaching limits
+
+### Changed
+- `TransistorClient()` constructor now accepts `auto_rate_limit` parameter
+- All API calls now automatically respect rate limits without user intervention
+- Improved user experience - no more manual rate limit handling required
+
+### Technical Details
+- Uses sliding window approach to track last 10 requests
+- Automatically sleeps when rate limit would be exceeded
+- Zero-configuration rate limiting for better developer experience
+
 ## [1.1.0] - 2025-09-22
 
 ### Fixed
